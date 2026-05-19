@@ -1,0 +1,54 @@
+id: claude-code-wordpress-detect
+
+info:
+  name: WordPress - Detect
+  author: amiru
+  severity: info
+  description: |
+    Detects WordPress installations by looking for wp-content/wp-includes paths
+    in the response body and extracts the version from the generator meta tag.
+  reference:
+    - https://wordpress.org
+  metadata:
+    max-request: 1
+    vendor: wordpress
+    product: wordpress
+    shodan-query: http.html:"/wp-content/"
+  tags: tech,detect,wordpress,cms
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    redirects: true
+    max-redirects: 2
+
+    # Fire if ANY matcher hits (common WP fingerprints)
+    matchers-condition: or
+    matchers:
+      # wp-content in body — most reliable signal
+      - type: word
+        part: body
+        words:
+          - "/wp-content/"
+
+      # wp-includes in body — also unique to WordPress
+      - type: word
+        part: body
+        words:
+          - "/wp-includes/"
+
+      # X-Powered-By header sometimes set by WP plugins
+      - type: word
+        part: header
+        words:
+          - "WordPress"
+
+    extractors:
+      # Pull version string when the generator meta tag is present
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)<meta[^>]+name="generator"[^>]+content="WordPress ([^"]+)"'

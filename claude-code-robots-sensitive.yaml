@@ -1,0 +1,50 @@
+id: claude-code-robots-sensitive
+
+info:
+  name: robots.txt - Sensitive Paths Exposed
+  author: amiru
+  severity: medium
+  description: |
+    robots.txt exposes paths that appear sensitive (admin, backup, config, API, etc.).
+    Attackers routinely spider robots.txt to discover hidden endpoints.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/
+  metadata:
+    max-request: 1
+  tags: exposure,robots,misconfig,discovery
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/robots.txt"
+
+    redirects: true
+    max-redirects: 2
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: content_type
+        words:
+          - "text/plain"
+
+      - type: word
+        part: body
+        words:
+          - "User-agent:"
+
+      - type: regex
+        part: body
+        regex:
+          - '(?i)(?:Disallow|Allow):\s*/(?:admin|administrator|wp-admin|cpanel|panel|dashboard|login|signin|auth|sso|backup|backups|bak|old|archive|config|configuration|env|settings|api|graphql|rest|swagger|openapi|dev|staging|test|internal|private|secret|\.git|\.svn|\.hg|db|database|sql|dump|upload|uploads|files)'
+
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)(?:Disallow|Allow):\s*(/(?:admin|administrator|wp-admin|cpanel|panel|dashboard|login|signin|auth|sso|backup|backups|bak|old|archive|config|configuration|env|settings|api|graphql|rest|swagger|openapi|dev|staging|test|internal|private|secret|\.git|\.svn|\.hg|db|database|sql|dump|upload|uploads|files)[^\s]*)'
