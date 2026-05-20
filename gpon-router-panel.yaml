@@ -1,0 +1,68 @@
+id: gpon-router-panel
+
+info:
+  name: GPON Router Admin Panel - Detect
+  author: amiru
+  severity: info
+  description: |
+    Detects GPON (Gigabit Passive Optical Network) home gateway / ONT (Optical Network
+    Terminal) devices by fingerprinting their HTTP admin interface. Covers generic
+    ISP-branded ONTs (ZTE, FiberHome, OptiLink), ZTE ZXHN series, and Dasan GPON routers.
+  reference:
+    - https://www.zte.com.cn/global/product/Fixed%20Access%20Network/ONT
+    - https://www.fiberhome.com/
+    - https://www.dasannetworks.com/
+  metadata:
+    max-request: 2
+    shodan-query: 'title:"GPON Home Gateway"'
+    fofa-query: 'title="GPON Home Gateway"'
+  tags: tech,detect,gpon,iot,router,ont,onu
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    redirects: true
+    max-redirects: 2
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "GPON Home Gateway"
+        case-insensitive: true
+
+      - type: word
+        part: body
+        words:
+          - "ZXHN"
+
+      - type: word
+        part: body
+        words:
+          - "/GponForm/"
+
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)<title>([^<]*(?:GPON|ZXHN|ONT)[^<]*)</title>'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/boaform/admin/formLogin"
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: body
+        words:
+          - "GPON"
+        case-insensitive: true
